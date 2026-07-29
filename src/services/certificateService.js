@@ -29,18 +29,32 @@ async function requestFromApi(path, options) {
   return payload;
 }
 
+const VITE_SUPABASE_URL=import.meta.env.VITE_SUPABASE_URL;
+const VITE_SUPABASE_ANON_KEY=import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 export async function verifyCertificate(certificateNo) {
-  const apiPayload = await requestFromApi(
-    `/api/certificates/${encodeURIComponent(certificateNo)}`,
-    { method: "GET" },
+  const response = await fetch(
+    `${VITE_SUPABASE_URL}/functions/v1/verify-certificate`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: VITE_SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        certificateNo,
+      }),
+    }
   );
 
-  if (apiPayload) {
-    return apiPayload.data ?? apiPayload;
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Verification failed.");
   }
 
-  await pause();
-  return findLocalCertificate(certificateNo) ?? null;
+  return data;
 }
 
 export async function getCertificateForDownload({ certificateNo, name }) {
