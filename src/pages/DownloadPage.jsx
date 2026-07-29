@@ -4,7 +4,6 @@ import { useSearchParams } from "react-router-dom";
 import CertificatePreview from "../components/certificate/CertificatePreview.jsx";
 import Loader from "../components/common/Loader.jsx";
 import PageHero from "../components/common/PageHero.jsx";
-import { demoCredentials } from "../data/certificates.js";
 import { getCertificateForDownload } from "../services/certificateService.js";
 import { downloadCertificatePdf } from "../utils/downloadCertificate.js";
 
@@ -21,7 +20,6 @@ function DownloadPage() {
   const [formData, setFormData] = useState(initialValues);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [record, setRecord] = useState(null);
 
   useEffect(() => {
     document.title = "Download Certificate | Navprayas";
@@ -43,19 +41,47 @@ function DownloadPage() {
 
     setLoading(true);
     setError("");
-    setRecord(null);
 
     try {
-      const matchedRecord = await getCertificateForDownload(formData);
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-certificate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify(formData),
+        }
+      );
 
-      if (!matchedRecord) {
-        setError("No matching certificate was found. Check the number and registered name.");
-        return;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          error.error || "Certificate verification failed."
+        );
       }
 
-      setRecord(matchedRecord);
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "An unexpected error occurred.");
+      const blob = await response.blob();
+
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${formData.certificateNo}.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred."
+      );
     } finally {
       setLoading(false);
     }
@@ -63,13 +89,6 @@ function DownloadPage() {
 
   function resetForm() {
     setFormData({ certificateNo: "", name: "" });
-    setRecord(null);
-    setError("");
-  }
-
-  function useDemo(demo) {
-    setFormData({ certificateNo: demo.certificateNo, name: demo.name });
-    setRecord(null);
     setError("");
   }
 
@@ -122,20 +141,9 @@ function DownloadPage() {
               {error && <div className="form-alert form-alert--error" role="alert">{error}</div>}
 
               <button className="button button--primary button--full" type="submit" disabled={loading}>
-                {loading ? <Loader label="Checking record" /> : <><Download size={18} /> Generate certificate</>}
+                {loading ? <Loader label="Creating Your Certificate" /> : <><Download size={18} /> Download certificate</>}
               </button>
             </form>
-
-            <div className="demo-box">
-              <p><Info size={16} /> Demo credentials for testing</p>
-              <div className="demo-box__buttons">
-                {demoCredentials.map((demo) => (
-                  <button key={demo.label} type="button" onClick={() => useDemo(demo)}>
-                    {demo.label}: {demo.name}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
           <aside className="portal-aside">
@@ -152,28 +160,6 @@ function DownloadPage() {
           </aside>
         </div>
       </section>
-
-      {record && (
-        <section className="result-section">
-          <div className="page-shell">
-            <div className="result-section__heading">
-              <div>
-                <span className="eyebrow">Certificate ready</span>
-                <h2>Preview and download</h2>
-              </div>
-              <div className="result-actions">
-                <button type="button" className="button button--outline" onClick={resetForm}>
-                  <RotateCcw size={17} /> Search another
-                </button>
-                <button type="button" className="button button--primary" onClick={() => downloadCertificatePdf(record)}>
-                  <Download size={17} /> Download PDF
-                </button>
-              </div>
-            </div>
-            <CertificatePreview record={record} />
-          </div>
-        </section>
-      )}
     </>
   );
 }
