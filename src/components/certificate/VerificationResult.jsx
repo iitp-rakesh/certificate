@@ -1,53 +1,240 @@
-import { CalendarDays, Hash, IdCard, Layers3, UserRound } from "lucide-react";
+import {
+  CalendarDays,
+  Download,
+  Hash,
+  IdCard,
+  Layers3,
+  MonitorCheck,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
 import { Link } from "react-router-dom";
-import StatusBadge from "../common/StatusBadge.jsx";
 
 function VerificationResult({ record }) {
+  if (!record) {
+    return null;
+  }
+
+  /*
+   * Support the possible field names returned by the API.
+   */
+  const certificateNumber =
+    record.certificateNo ||
+    record.certificateNumber ||
+    "";
+
+  const holderName =
+    record.name ||
+    record.fullName ||
+    "";
+
+  const contribution =
+    record.contribution ||
+    record.programme ||
+    "";
+
+  const role =
+    record.role ||
+    record.designation ||
+    "";
+
+  const mode =
+    record.mode ||
+    record.contributionMode ||
+    "";
+
+  const contributionYear =
+    record.year ||
+    record.contributionYear ||
+    record.issueYear ||
+    "";
+
   const downloadParams = new URLSearchParams({
-    certificate: record.certificateNo,
-    name: record.name,
+    certificate: certificateNumber,
+    name: holderName,
   });
 
+  const details = [
+    {
+      label: "Certificate Number",
+      value: certificateNumber,
+      icon: Hash,
+      featured: true,
+    },
+    {
+      label: "Contribution",
+      value: contribution,
+      icon: Layers3,
+    },
+    {
+      label: "Role",
+      value: role,
+      icon: IdCard,
+    },
+    {
+      label: "Contribution Mode",
+      value: mode,
+      icon: MonitorCheck,
+    },
+    {
+      label: "Contribution Year",
+      value: contributionYear,
+      icon: CalendarDays,
+    },
+  ];
+
   return (
-    <section className="verification-card" aria-live="polite">
-      <div className="verification-card__top">
-        <div>
-          <StatusBadge>Certificate verified</StatusBadge>
-          <h2>{record.name}</h2>
-          <p>{record.programme}</p>
+    <article
+      className="verified-certificate"
+      aria-live="polite"
+      aria-labelledby="verified-certificate-title"
+    >
+      {/* ==================== VERIFIED HEADER ==================== */}
+
+      <header className="verified-certificate__header">
+        <div className="verified-certificate__header-content">
+          <span
+            className="verified-certificate__icon"
+            aria-hidden="true"
+          >
+            <ShieldCheck
+              size={30}
+              strokeWidth={1.8}
+            />
+          </span>
+
+          <div>
+            <span className="verified-certificate__status">
+              <span aria-hidden="true" />
+              Verification successful
+            </span>
+
+            <h2 id="verified-certificate-title">
+              Certificate Verified
+            </h2>
+
+            <p>
+              This certificate is authentic and exists in the official
+              Navprayas records.
+            </p>
+          </div>
         </div>
-        <span className="verification-card__seal" aria-hidden="true">✓</span>
+
+        <div
+          className="verified-certificate__seal"
+          aria-label="Official verified certificate"
+        >
+          <ShieldCheck
+            size={28}
+            strokeWidth={1.7}
+            aria-hidden="true"
+          />
+
+          <span>Official</span>
+        </div>
+      </header>
+
+      {/* ==================== CERTIFICATE BODY ==================== */}
+
+      <div className="verified-certificate__body">
+        <div className="verified-certificate__holder">
+          <div
+            className="verified-certificate__avatar"
+            aria-hidden="true"
+          >
+            {holderName.charAt(0).toUpperCase() || "N"}
+          </div>
+
+          <div>
+            <span>Certificate holder</span>
+
+            <h3>
+              {holderName || "Not available"}
+            </h3>
+
+            <p>
+              {role || contribution || "Navprayas contributor"}
+            </p>
+          </div>
+        </div>
+
+        {/* ==================== RECORD DETAILS ==================== */}
+
+        <dl className="verified-certificate__grid">
+          {details.map((item) => {
+            const Icon = item.icon;
+
+            const itemClassName = [
+              "verified-certificate__item",
+              item.featured
+                ? "verified-certificate__item--featured"
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            return (
+              <div
+                className={itemClassName}
+                key={item.label}
+              >
+                <dt>
+                  <span aria-hidden="true">
+                    <Icon
+                      size={18}
+                      strokeWidth={1.9}
+                    />
+                  </span>
+
+                  {item.label}
+                </dt>
+
+                <dd>
+                  {item.value || "Not available"}
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
       </div>
 
-      <dl className="verification-card__details">
-        <div>
-          <dt><Hash size={17} /> Certificate number</dt>
-          <dd>{record.certificateNo}</dd>
-        </div>
-        <div>
-          <dt><IdCard size={17} /> Membership number</dt>
-          <dd>{record.membershipNo}</dd>
-        </div>
-        <div>
-          <dt><UserRound size={17} /> Role</dt>
-          <dd>{record.role}</dd>
-        </div>
-        <div>
-          <dt><Layers3 size={17} /> Department</dt>
-          <dd>{record.department}</dd>
-        </div>
-        <div>
-          <dt><CalendarDays size={17} /> Issue date</dt>
-          <dd>{record.issueDate}</dd>
-        </div>
-      </dl>
+      {/* ==================== CARD FOOTER ==================== */}
 
-      <div className="verification-card__actions">
-        <Link className="button button--primary" to={`/download?${downloadParams.toString()}`}>
-          Download this certificate
+      <footer className="verified-certificate__footer">
+        <div className="verified-certificate__footer-note">
+          <ShieldCheck
+            size={20}
+            strokeWidth={1.9}
+            aria-hidden="true"
+          />
+
+          <div>
+            <strong>Authenticity confirmed</strong>
+
+            <span>
+              Verified through the official Navprayas certificate
+              verification system.
+            </span>
+          </div>
+        </div>
+
+        <Link
+          className="verified-certificate__download"
+          to={`/download?${downloadParams.toString()}`}
+          aria-label={`Download certificate for ${
+            holderName || "certificate holder"
+          }`}
+        >
+          <Download
+            size={18}
+            strokeWidth={1.9}
+            aria-hidden="true"
+          />
+
+          Download Certificate
         </Link>
-      </div>
-    </section>
+      </footer>
+    </article>
   );
 }
 
