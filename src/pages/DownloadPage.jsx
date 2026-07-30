@@ -19,7 +19,7 @@ function DownloadPage() {
 
   const [formData, setFormData] = useState(initialValues);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [status, setStatus] = useState({ text: "", variant: "error" });
 
   useEffect(() => {
     document.title = "Download Certificate | Navprayas";
@@ -28,20 +28,22 @@ function DownloadPage() {
   function handleChange(event) {
     const { name, value } = event.target;
     setFormData((current) => ({ ...current, [name]: value }));
-    setError("");
+    setStatus({ text: "", variant: "error" });
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
 
     if (!formData.certificateNo.trim() || !formData.name.trim()) {
-      setError("Enter both the certificate number and full name.");
+      setStatus({
+        text: "Enter both the certificate number and full name.",
+        variant: "error",
+      });
       return;
     }
 
     setLoading(true);
-    setError("");
-
+    setStatus({ text: "", variant: "error" });
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-certificate`,
@@ -56,17 +58,54 @@ function DownloadPage() {
         }
       );
 
+      const contentType = response.headers.get("content-type") || "";
+
       if (!response.ok) {
-        const error = await response.json();
+        const error = contentType.includes("application/json")
+          ? await response.json()
+          : null;
+
         throw new Error(
-          error.error || "Certificate verification failed."
+          error?.message || error?.error || "Certificate verification failed."
+        );
+      }
+
+      if (contentType.includes("application/json")) {
+        const body = await response.json();
+
+        if (body?.downloadable === false && body?.verified === true) {
+          setStatus({
+            text:
+              body.message ||
+              "Certificate verified, but PDF is not available for this record.",
+            variant: "success",
+          });
+          return;
+        }
+
+        if (body?.error) {
+          throw new Error(body.error);
+        }
+
+        if (body?.downloadable === false) {
+          throw new Error(
+            body.message ||
+              "Certificate verified, but PDF is not available for this record."
+          );
+        }
+
+        throw new Error(
+          "The certificate could not be downloaded in PDF format."
         );
       }
 
       const blob = await response.blob();
 
-      const url = window.URL.createObjectURL(blob);
+      if (!blob || !blob.size) {
+        throw new Error("The certificate PDF could not be generated.");
+      }
 
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
       link.download = `${formData.certificateNo}.pdf`;
@@ -77,11 +116,13 @@ function DownloadPage() {
 
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "An unexpected error occurred."
-      );
+      setStatus({
+        text:
+          err instanceof Error
+            ? err.message
+            : "An unexpected error occurred.",
+        variant: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -89,7 +130,7 @@ function DownloadPage() {
 
   function resetForm() {
     setFormData({ certificateNo: "", name: "" });
-    setError("");
+    setStatus({ text: "", variant: "error" });
   }
 
   return (
@@ -138,7 +179,14 @@ function DownloadPage() {
                 />
               </div>
 
-              {error && <div className="form-alert form-alert--error" role="alert">{error}</div>}
+              {status.text && (
+                <div
+                  className={`form-alert form-alert--${status.variant}`}
+                  role="alert"
+                >
+                  {status.text}
+                </div>
+              )}
 
               <button className="button button--primary button--full" type="submit" disabled={loading}>
                 {loading ? <Loader label="Creating Your Certificate" /> : <><Download size={18} /> Download certificate</>}

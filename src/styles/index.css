@@ -835,6 +835,12 @@ input:focus-visible {
   background: var(--danger-soft);
 }
 
+.form-alert--success {
+  color: var(--success);
+  border: 1px solid #b5e5cf;
+  background: var(--success-soft);
+}
+
 .inline-loader {
   display: inline-flex;
   align-items: center;
